@@ -19,6 +19,7 @@ type Data struct {
 }
 
 type Heap struct {
+	//TODO: replace all mutex stuff with sync.Map?
 	dataMx *sync.RWMutex
 	fileMx *sync.Mutex
 	wg     *sync.WaitGroup
@@ -165,7 +166,7 @@ func (h *Heap) Get(key string) (val interface{}, ok bool) {
 func (h *Heap) GetInt(key string) int {
 	val, ok := h.Get(key)
 	if !ok {
-		return -1
+		return 0
 	}
 	return val.(int)
 }
@@ -208,6 +209,18 @@ func (h *Heap) Range(fn func(key string, value interface{}, ttl int64)) {
 
 func (h *Heap) Support(kind interface{}) {
 	gob.Register(kind)
+}
+
+func (h *Heap) Fork() (data map[string]Data) {
+	data = make(map[string]Data)
+
+	h.dataMx.Lock()
+	for key, val := range h.data {
+		data[key] = val
+	}
+	h.dataMx.Unlock()
+
+	return
 }
 
 func (h *Heap) Save() (err error) {

@@ -15,6 +15,7 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"strings"
 )
 
 type Config struct {
@@ -124,6 +125,31 @@ func limit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(204)
 }
 
+// TODO: Limit with auth?
+func memfn(w http.ResponseWriter, r *http.Request) {
+	if e := writer.Encode(w, r, heap.Fork()); e != nil {
+		fmt.Printf("AFD.memory e=%s\n", e.Error())
+		w.WriteHeader(403)
+		writer.Err(w, r, writer.ErrorRes{Error: "Failed forking memory", Detail: nil})
+	}
+}
+// TODO: Limit with auth?
+func memclear(w http.ResponseWriter, r *http.Request) {
+	pattern := r.URL.Query().Get("pattern")
+	if pattern == "" {
+		w.WriteHeader(400)
+		writer.Err(w, r, writer.ErrorRes{Error: "GET[pattern] missing", Detail: nil})
+		return
+	}
+
+	heap.Range(func(key string, value interface{}, ttl int64) {
+		if (pattern == "*" || strings.Contains(key, pattern)) {
+			fmt.Printf("AFD.clear key=%s\n", key)
+			heap.Del(key)
+		}
+	})
+}
+
 func main() {
 	var path string
 	flag.BoolVar(&Verbose, "v", false, "Show all that happens")
@@ -139,6 +165,8 @@ func main() {
 	mux.Add("/", doc, "This documentation")
 	mux.Add("/verbose", verbose, "Toggle verbosity-mode")
 	mux.Add("/limit", limit, "Increase limit-counter")
+	mux.Add("/memory", memfn, "Dump current state to client")
+	mux.Add("/clear", memclear, "Remove one or more entries")
 
 	var e error
 	// Max Nreq/min against bruteforcing
