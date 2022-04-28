@@ -14,8 +14,8 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"time"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -133,6 +133,7 @@ func memfn(w http.ResponseWriter, r *http.Request) {
 		writer.Err(w, r, writer.ErrorRes{Error: "Failed forking memory", Detail: nil})
 	}
 }
+
 // TODO: Limit with auth?
 func memclear(w http.ResponseWriter, r *http.Request) {
 	pattern := r.URL.Query().Get("pattern")
@@ -142,8 +143,23 @@ func memclear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if pattern == "*" {
+		// Reset
+		heap = ttl_map.New()
+		heap.Path(C.State)
+
+		if e := os.Remove(C.State); e != nil {
+			w.WriteHeader(400)
+			writer.Err(w, r, writer.ErrorRes{Error: "Failed deleting current state", Detail: e.Error()})
+			return
+		}
+
+		w.WriteHeader(204)
+		return
+	}
+
 	heap.Range(func(key string, value interface{}, ttl int64) {
-		if (pattern == "*" || strings.Contains(key, pattern)) {
+		if strings.Contains(key, pattern) {
 			fmt.Printf("AFD.clear key=%s\n", key)
 			heap.Del(key)
 		}
