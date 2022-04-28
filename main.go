@@ -9,8 +9,10 @@ import (
 	"github.com/itshosted/webutils/muxdoc"
 	"github.com/jinzhu/configor"
 	ttl_map "github.com/mpdroog/afd/map"
+	"github.com/mpdroog/afd/writer"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 )
@@ -41,10 +43,11 @@ func Init(f string) error {
 
 	heap = ttl_map.New()
 	heap.Path(C.State)
-	if e := heap.Restore(); e != nil {
-		return e
+	if _, e := os.Stat(C.State); e == nil {
+		if e := heap.Restore(); e != nil {
+			return e
+		}
 	}
-
 	return nil
 }
 
@@ -78,7 +81,7 @@ func limit(w http.ResponseWriter, r *http.Request) {
 	key := r.URL.Query().Get("key")
 	if key == "" {
 		w.WriteHeader(400)
-		w.Write([]byte("GET[key] missing"))
+		writer.Err(w, r, writer.ErrorRes{Error: "GET[key] missing", Detail: nil})
 		return
 	}
 	// prefix
@@ -87,39 +90,38 @@ func limit(w http.ResponseWriter, r *http.Request) {
 	maxStr := r.URL.Query().Get("max")
 	if maxStr == "" {
 		w.WriteHeader(400)
-		w.Write([]byte("GET[max] missing"))
+		writer.Err(w, r, writer.ErrorRes{Error: "GET[max] missing", Detail: nil})
 		return
 	}
 	strategy := r.URL.Query().Get("strategy")
 	if strategy != "24UPDATE" && strategy != "24ADD" {
 		w.WriteHeader(400)
-		w.Write([]byte("GET[strategy] invalid, options=[24UPDATE,24ADD]"))
+		writer.Err(w, r, writer.ErrorRes{Error: "GET[strategy] invalid, options=[24UPDATE,24ADD]", Detail: nil})
 		return
 	}
 
 	max, e := strconv.Atoi(maxStr)
 	if e != nil {
 		w.WriteHeader(400)
-		w.Write([]byte("ERR: GET[max] not number"))
+		writer.Err(w, r, writer.ErrorRes{Error: "GET[max] not number", Detail: nil})
 		return
 	}
 
 	val := heap.GetInt(key)
 	val++
 
-	if strategy == "24UPDATE" {
-		heap.Set(key, val, 86400) // Increase TTL
-	}
-
 	if val >= max {
-		w.WriteHeader(423)
-		w.Write([]byte("LIMIT reached"))
+		if strategy == "24UPDATE" {
+			heap.Set(key, val, 86400) // Increase TTL
+		}
+
+		w.WriteHeader(403)
+		writer.Err(w, r, writer.ErrorRes{Error: "Limit reached", Detail: nil})
 		return
 	}
 
 	heap.Set(key, val, 86400)
-
-	w.Write([]byte("OK"))
+	w.WriteHeader(204)
 }
 
 func main() {
