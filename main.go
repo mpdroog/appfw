@@ -1,17 +1,18 @@
 package main
 
 import (
-	"github.com/jinzhu/configor"
-	ttl_map "github.com/leprosus/golang-ttl-map"
-	"strconv"
-
 	"flag"
 	"fmt"
+	"github.com/VojtechVitek/ratelimit"
+	"github.com/VojtechVitek/ratelimit/memory"
 	"github.com/itshosted/webutils/middleware"
 	"github.com/itshosted/webutils/muxdoc"
-	"github.com/itshosted/webutils/ratelimit"
+	"github.com/jinzhu/configor"
+	ttl_map "github.com/mpdroog/afd/map"
 	"net"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 type Config struct {
@@ -19,8 +20,8 @@ type Config struct {
 	State string `default:"./state.tsv"`
 	/** Host:port addr */
 	Listen string `default:"127.0.0.1:1337"`
-	/* Request limit per second */
-	Ratelimit int `default:"10"`
+	/* Request limit per minute */
+	Ratelimit int `default:"50"`
 }
 
 var (
@@ -40,6 +41,9 @@ func Init(f string) error {
 
 	heap = ttl_map.New()
 	heap.Path(C.State)
+	if e := heap.Restore(); e != nil {
+		return e
+	}
 
 	return nil
 }
@@ -73,6 +77,7 @@ func verbose(w http.ResponseWriter, r *http.Request) {
 func limit(w http.ResponseWriter, r *http.Request) {
 	key := r.URL.Query().Get("key")
 	if key == "" {
+		w.WriteHeader(400)
 		w.Write([]byte("GET[key] missing"))
 		return
 	}
@@ -81,37 +86,38 @@ func limit(w http.ResponseWriter, r *http.Request) {
 
 	maxStr := r.URL.Query().Get("max")
 	if maxStr == "" {
+		w.WriteHeader(400)
 		w.Write([]byte("GET[max] missing"))
 		return
 	}
 	strategy := r.URL.Query().Get("strategy")
-	if strategy == "" {
-		w.Write([]byte("GET[strategy] missing"))
+	if strategy != "24UPDATE" && strategy != "24ADD" {
+		w.WriteHeader(400)
+		w.Write([]byte("GET[strategy] invalid, options=[24UPDATE,24ADD]"))
 		return
 	}
 
 	max, e := strconv.Atoi(maxStr)
 	if e != nil {
+		w.WriteHeader(400)
 		w.Write([]byte("ERR: GET[max] not number"))
 		return
 	}
 
-	val := 0
-	{
-		valAny, ok := heap.Get(key)
-		if ok {
-			val = valAny.(int)
-		}
+	val := heap.GetInt(key)
+	val++
+
+	if strategy == "24UPDATE" {
+		heap.Set(key, val, 86400) // Increase TTL
 	}
 
-	// TODO: Strategies
-	// if strategy == 24hadd then increase ttl
 	if val >= max {
+		w.WriteHeader(423)
 		w.Write([]byte("LIMIT reached"))
 		return
 	}
 
-	heap.Set(key, val+1, 60)
+	heap.Set(key, val, 86400)
 
 	w.Write([]byte("OK"))
 }
@@ -132,11 +138,17 @@ func main() {
 	mux.Add("/verbose", verbose, "Toggle verbosity-mode")
 	mux.Add("/limit", limit, "Increase limit-counter")
 
-	middleware.Add(ratelimit.Use(float64(C.Ratelimit), float64(C.Ratelimit)))
-	http.Handle("/", middleware.Use(mux.Mux))
-
 	var e error
-	server := &http.Server{Addr: C.Listen, Handler: nil}
+	// Max Nreq/min against bruteforcing
+	limit := ratelimit.Request(ratelimit.IP).Rate(C.Ratelimit, time.Minute).LimitBy(memory.New())
+	server := &http.Server{
+		Addr:         C.Listen,
+		TLSConfig:    DefaultTLSConfig(),
+		Handler:      limit(middleware.Use(mux.Mux)),
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  15 * time.Second,
+	}
 	ln, e = net.Listen("tcp", server.Addr)
 	if e != nil {
 		panic(e)
