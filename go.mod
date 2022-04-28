@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/VojtechVitek/ratelimit v0.0.0-20160722140851-dc172bc0f6d2
+	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/gorilla/schema v1.2.0
 	github.com/hokaccha/go-prettyjson v0.0.0-20211117102719-0474bc63780f
 	github.com/itshosted/webutils v0.0.0-20170612142013-a5ff3b14b30a

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/VojtechVitek/ratelimit"
 	"github.com/VojtechVitek/ratelimit/memory"
+	"github.com/coreos/go-systemd/daemon"
 	"github.com/itshosted/webutils/middleware"
 	"github.com/itshosted/webutils/muxdoc"
 	"github.com/jinzhu/configor"
@@ -201,6 +202,14 @@ func main() {
 	}
 	if Verbose {
 		fmt.Printf("AFD=%+v\n", C)
+	}
+
+	sent, e := daemon.SdNotify(false, "READY=1")
+	if e != nil {
+		panic(e)
+	}
+	if !sent {
+		fmt.Printf("SystemD notify NOT sent\n")
 	}
 
 	if e := server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)}); e != nil {
