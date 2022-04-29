@@ -48,10 +48,9 @@ func Init(f string) error {
 	heap = ttl_map.New()
 	heap.Path(C.State)
 	if stat, e := os.Stat(C.State); e == nil && stat.Size() > 0 {
-		e = heap.Restore()
-		if e != nil {
+		if e := heap.Restore(); e != nil {
 			_ = os.Remove(C.State)
-			fmt.Printf("WARN: Flushed state as it was corrupt\n")
+			fmt.Printf("WARN: Flushed state as it was corrupt (e=%s)\n", e.Error())
 		}
 		if Verbose {
 			heap.Range(func(key string, value interface{}, ttl int64) {
