@@ -1,4 +1,4 @@
-AFD - Application Firewall Daemon
+Appfw - Application Firewall Daemon
 ==================
 
 Small daemon to easily make application path specific rules.

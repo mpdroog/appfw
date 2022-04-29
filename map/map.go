@@ -143,6 +143,52 @@ func (h *Heap) Set(key string, value interface{}, ttl int64) {
 	}
 }
 
+// SetValue overwrites value but only sets TTL once
+func (h *Heap) SetValue(key string, value interface{}, ttl int64) {
+	if ttl == 0 {
+		panic("DevErr, ttl is 0 for Update")
+	}
+
+	var (
+		data Data
+		ok   bool
+	)
+	h.dataMx.RLock()
+	data, ok = h.data[key]
+	h.dataMx.RUnlock()
+
+	if ok {
+		// Update value
+		data.Key = key
+		data.Value = value
+	} else {
+		// Add value with TTL
+		data = Data{
+			Key:       key,
+			Value:     value,
+			Timestamp: time.Now().Unix(),
+		}
+
+		if ttl > 0 {
+			data.Timestamp += ttl
+		} else if ttl < 0 {
+			data.Timestamp = -1
+		}
+	}
+
+	h.dataMx.Lock()
+	h.data[key] = data
+	h.dataMx.Unlock()
+
+	data.Key = key
+
+	withSaving := atomic.LoadUint32(&h.withSaving)
+	if withSaving > 0 {
+		h.wg.Add(1)
+		h.queue <- data
+	}
+}
+
 func (h *Heap) Get(key string) (val interface{}, ok bool) {
 	var data Data
 	h.dataMx.RLock()

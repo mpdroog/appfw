@@ -122,7 +122,11 @@ func limit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	heap.Set(key, val, 86400)
+	if strategy == "24UPDATE" {
+		heap.Set(key, val, 86400)
+	} else if strategy == "24ADD" {
+		heap.SetValue(key, val, 86400)
+	}
 	w.WriteHeader(204)
 }
 
