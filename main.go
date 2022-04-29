@@ -14,8 +14,10 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -45,9 +47,16 @@ func Init(f string) error {
 
 	heap = ttl_map.New()
 	heap.Path(C.State)
-	if _, e := os.Stat(C.State); e == nil {
-		if e := heap.Restore(); e != nil {
-			return e
+	if stat, e := os.Stat(C.State); e == nil && stat.Size() > 0 {
+		e = heap.Restore()
+		if e != nil {
+			_ = os.Remove(C.State)
+			fmt.Printf("WARN: Flushed state as it was corrupt\n")
+		}
+		if Verbose {
+			heap.Range(func(key string, value interface{}, ttl int64) {
+				fmt.Printf("%s=%+v (%d)\n", key, value, ttl)
+			})
 		}
 	}
 	return nil
@@ -112,21 +121,21 @@ func limit(w http.ResponseWriter, r *http.Request) {
 	val := heap.GetInt(key)
 	val++
 
-	if val >= max {
-		if strategy == "24UPDATE" {
-			heap.Set(key, val, 86400) // Increase TTL
-		}
+	if strategy == "24UPDATE" {
+		// Always set (increase TTL)
+		heap.Set(key, val, 86400)
+	} else if strategy == "24ADD" {
+		// Only set value (ignore TTL if update)
+		heap.SetValue(key, val, 86400)
+	}
 
+	if val >= max {
+		// TODO: Somehow save limit is reached so we can easily filter?
 		w.WriteHeader(403)
-		writer.Err(w, r, writer.ErrorRes{Error: "Limit reached", Detail: nil})
+		writer.Err(w, r, writer.ErrorRes{Error: "Limit reached", Detail: fmt.Sprintf("cur=%d max=%d", val, max)})
 		return
 	}
 
-	if strategy == "24UPDATE" {
-		heap.Set(key, val, 86400)
-	} else if strategy == "24ADD" {
-		heap.SetValue(key, val, 86400)
-	}
 	w.WriteHeader(204)
 }
 
@@ -178,7 +187,9 @@ func main() {
 	flag.Parse()
 
 	if e := Init(path); e != nil {
-		panic(e)
+		fmt.Printf("Init e=%s\n", e.Error())
+		os.Exit(1)
+		return
 	}
 
 	mux.Title = "AFD-API"
@@ -208,6 +219,26 @@ func main() {
 		fmt.Printf("AFD=%+v\n", C)
 	}
 
+	// Error handling of heap state writer
+	heap.Error(func(e error) {
+		fmt.Printf("WARN: heap.Error=%s\n", e.Error())
+	})
+
+	go func() {
+		// Reset state-file every 24hours (to prevent it becoming too big)
+		ticker := time.NewTicker(24 * time.Hour)
+
+		for {
+			<-ticker.C
+			if e := heap.Save(); e != nil {
+				fmt.Printf("heap.Save e=%s\n", e.Error())
+			}
+		}
+	}()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
 	sent, e := daemon.SdNotify(false, "READY=1")
 	if e != nil {
 		panic(e)
@@ -216,7 +247,21 @@ func main() {
 		fmt.Printf("SystemD notify NOT sent\n")
 	}
 
+	closing := false
+	go func() {
+		<-sigs
+		fmt.Printf("TERM signal\n")
+		closing = true
+		server.Close()
+	}()
+
 	if e := server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)}); e != nil {
-		panic(e)
+		if !closing {
+			panic(e)
+		}
 	}
+
+	// Finish state
+	heap.Close()
+	heap.Save()
 }

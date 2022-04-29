@@ -32,6 +32,8 @@ type Heap struct {
 
 	errFn     func(err error)
 	errFnInit bool
+
+	closed bool
 }
 
 func New() *Heap {
@@ -65,6 +67,10 @@ func (h *Heap) Path(filePath string) {
 func (h *Heap) handle() {
 	var err error
 	for data := range h.queue {
+		if h.closed {
+			return
+		}
+
 		err = h.append(data)
 		h.wg.Done()
 		if err != nil && h.errFnInit {
@@ -76,6 +82,10 @@ func (h *Heap) handle() {
 func (h *Heap) append(data Data) (err error) {
 	h.fileMx.Lock()
 	defer h.fileMx.Unlock()
+
+	if h.closed {
+		return
+	}
 
 	var file *os.File
 	file, err = os.OpenFile(h.filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
@@ -131,6 +141,9 @@ func (h *Heap) Set(key string, value interface{}, ttl int64) {
 	}
 
 	h.dataMx.Lock()
+	if h.closed {
+		return
+	}
 	h.data[key] = data
 	h.dataMx.Unlock()
 
@@ -154,6 +167,9 @@ func (h *Heap) SetValue(key string, value interface{}, ttl int64) {
 		ok   bool
 	)
 	h.dataMx.RLock()
+	if h.closed {
+		return
+	}
 	data, ok = h.data[key]
 	h.dataMx.RUnlock()
 
@@ -219,6 +235,9 @@ func (h *Heap) GetInt(key string) int {
 
 func (h *Heap) Del(key string) {
 	h.dataMx.RLock()
+	if h.closed {
+		return
+	}
 	_, ok := h.data[key]
 	h.dataMx.RUnlock()
 	if !ok {
@@ -267,6 +286,13 @@ func (h *Heap) Fork() (data map[string]Data) {
 	h.dataMx.Unlock()
 
 	return
+}
+
+func (h *Heap) Close() {
+	h.fileMx.Lock()
+	defer h.fileMx.Unlock()
+
+	h.closed = true
 }
 
 func (h *Heap) Save() (err error) {
