@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -15,6 +16,7 @@ import (
 type Data struct {
 	Key       string
 	Value     interface{}
+	Max       int
 	Timestamp int64
 }
 
@@ -123,7 +125,7 @@ func (h *Heap) Error(fn func(err error)) {
 	h.errFnInit = true
 }
 
-func (h *Heap) Set(key string, value interface{}, ttl int64) {
+func (h *Heap) Set(key string, value interface{}, ttl int64, max int) {
 	if ttl == 0 {
 		return
 	}
@@ -131,6 +133,7 @@ func (h *Heap) Set(key string, value interface{}, ttl int64) {
 	data := Data{
 		Key:       key,
 		Value:     value,
+		Max:       max,
 		Timestamp: time.Now().Unix(),
 	}
 
@@ -157,7 +160,7 @@ func (h *Heap) Set(key string, value interface{}, ttl int64) {
 }
 
 // SetValue overwrites value but only sets TTL once
-func (h *Heap) SetValue(key string, value interface{}, ttl int64) {
+func (h *Heap) SetValue(key string, value interface{}, ttl int64, max int) {
 	if ttl == 0 {
 		panic("DevErr, ttl is 0 for Update")
 	}
@@ -177,11 +180,13 @@ func (h *Heap) SetValue(key string, value interface{}, ttl int64) {
 		// Update value
 		data.Key = key
 		data.Value = value
+		data.Max = max
 	} else {
 		// Add value with TTL
 		data = Data{
 			Key:       key,
 			Value:     value,
+			Max:       max,
 			Timestamp: time.Now().Unix(),
 		}
 
@@ -258,7 +263,7 @@ func (h *Heap) Del(key string) {
 	}
 }
 
-func (h *Heap) Range(fn func(key string, value interface{}, ttl int64)) {
+func (h *Heap) Range(fn func(key string, value interface{}, ttl int64, max int)) {
 	data := map[string]Data{}
 
 	h.dataMx.Lock()
@@ -268,7 +273,7 @@ func (h *Heap) Range(fn func(key string, value interface{}, ttl int64)) {
 	h.dataMx.Unlock()
 
 	for _, d := range data {
-		fn(d.Key, d.Value, d.Timestamp)
+		fn(d.Key, d.Value, d.Timestamp, d.Max)
 	}
 }
 
@@ -313,7 +318,9 @@ func (h *Heap) Save() (err error) {
 		return
 	}
 	defer func() {
-		_ = file.Close()
+		if e := file.Close(); e != nil {
+			fmt.Printf("WARN: Skipped error e=%s\n", e.Error())
+		}
 	}()
 
 	var (
@@ -324,8 +331,10 @@ func (h *Heap) Save() (err error) {
 	h.dataMx.RLock()
 	defer h.dataMx.RUnlock()
 
-	for _, data := range h.data {
+	for key, data := range h.data {
 		if data.Timestamp != -1 && data.Timestamp < time.Now().Unix() {
+			// Also cleaning up memory here
+			delete(h.data, key)
 			continue
 		}
 
@@ -345,10 +354,14 @@ func (h *Heap) Save() (err error) {
 		}
 	}
 
-	_ = os.Remove(h.filePath)
+	// Only remove file when it exists
+	if _, err = os.Stat(h.filePath); err == nil {
+		if err = os.Remove(h.filePath); err != nil {
+			return
+		}
+	}
 
 	err = os.Rename(h.filePath+".sav", h.filePath)
-
 	return
 }
 

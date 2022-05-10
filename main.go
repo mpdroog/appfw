@@ -53,7 +53,7 @@ func Init(f string) error {
 			fmt.Printf("WARN: Flushed state as it was corrupt (e=%s)\n", e.Error())
 		}
 		if Verbose {
-			heap.Range(func(key string, value interface{}, ttl int64) {
+			heap.Range(func(key string, value interface{}, ttl int64, max int) {
 				fmt.Printf("%s=%+v (%d)\n", key, value, ttl)
 			})
 		}
@@ -122,10 +122,10 @@ func limit(w http.ResponseWriter, r *http.Request) {
 
 	if strategy == "24UPDATE" {
 		// Always set (increase TTL)
-		heap.Set(key, val, 86400)
+		heap.Set(key, val, 86400, max)
 	} else if strategy == "24ADD" {
 		// Only set value (ignore TTL if update)
-		heap.SetValue(key, val, 86400)
+		heap.SetValue(key, val, 86400, max)
 	}
 
 	if val >= max {
@@ -171,7 +171,7 @@ func memclear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	heap.Range(func(key string, value interface{}, ttl int64) {
+	heap.Range(func(key string, value interface{}, ttl int64, max int) {
 		if strings.Contains(key, pattern) {
 			fmt.Printf("AFD.clear key=%s\n", key)
 			heap.Del(key)
@@ -229,6 +229,7 @@ func main() {
 
 		for {
 			<-ticker.C
+			fmt.Printf("@daily heap.Save")
 			if e := heap.Save(); e != nil {
 				fmt.Printf("heap.Save e=%s\n", e.Error())
 			}
