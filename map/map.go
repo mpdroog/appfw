@@ -229,6 +229,14 @@ func (h *Heap) Get(key string) (val interface{}, ok bool) {
 	return
 }
 
+func (h *Heap) Len() (l int) {
+	h.dataMx.RLock()
+	l = len(h.data)
+	h.dataMx.RUnlock()
+
+	return
+}
+
 // GetInt assumes the type and directly returns it
 func (h *Heap) GetInt(key string) int {
 	val, ok := h.Get(key)

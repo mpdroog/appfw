@@ -177,6 +177,7 @@ func memclear(w http.ResponseWriter, r *http.Request) {
 
 	if pattern == "*" {
 		// Reset
+		oldheap := heap
 		heap = ttl_map.New()
 		heap.Path(C.State)
 
@@ -186,6 +187,7 @@ func memclear(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		w.Header().Add("X-Affect", fmt.Sprintf("%d", oldheap.Len()))
 		w.WriteHeader(204)
 		return
 	}
