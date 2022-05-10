@@ -385,10 +385,12 @@ func (h *Heap) Restore() (err error) {
 		return
 	}
 	defer func() {
-		_ = file.Sync()
-	}()
-	defer func() {
-		_ = file.Close()
+		if e := file.Sync(); e != nil {
+			fmt.Printf("WARN: file.Sync e=%s\n", e.Error())
+		}
+		if e := file.Close(); e != nil {
+			fmt.Printf("WARN: file.Close e=%s\n", e.Error())
+		}
 	}()
 
 	reader := bufio.NewReader(file)
