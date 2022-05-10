@@ -190,12 +190,17 @@ func memclear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	affect := 0
 	heap.Range(func(key string, value interface{}, ttl int64, max int) {
 		if strings.Contains(key, pattern) {
 			fmt.Printf("AFD.clear key=%s\n", key)
 			heap.Del(key)
+			affect++
 		}
 	})
+
+	w.Header().Add("X-Affect", fmt.Sprintf("%d", affect))
+	w.WriteHeader(204)
 }
 
 func main() {
