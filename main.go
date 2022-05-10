@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"flag"
 	"fmt"
 	"github.com/VojtechVitek/ratelimit"
@@ -28,6 +29,8 @@ type Config struct {
 	Listen string `default:"127.0.0.1:1337"`
 	/* Request limit per minute */
 	Ratelimit int `default:"50"`
+	/* Restrict powertools with apikey */
+	APIKey string
 }
 
 var (
@@ -40,9 +43,13 @@ var (
 )
 
 func Init(f string) error {
-	e := configor.New(&configor.Config{ENVPrefix: "AFD"}).Load(&C, f)
+	e := configor.New(&configor.Config{ENVPrefix: "APPFW"}).Load(&C, f)
 	if e != nil {
 		return e
+	}
+
+	if C.APIKey == "" {
+		return fmt.Errorf("Missing config.APIKey")
 	}
 
 	heap = ttl_map.New()
@@ -138,8 +145,14 @@ func limit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(204)
 }
 
-// TODO: Limit with auth?
 func memfn(w http.ResponseWriter, r *http.Request) {
+	apikey := r.URL.Query().Get("apikey")
+	if apikey == "" || subtle.ConstantTimeCompare([]byte(apikey), []byte(C.APIKey)) != 1 {
+		w.WriteHeader(401)
+		writer.Err(w, r, writer.ErrorRes{Error: "Invalid GET[apikey]", Detail: nil})
+		return
+	}
+
 	if e := writer.Encode(w, r, heap.Fork()); e != nil {
 		fmt.Printf("AFD.memory e=%s\n", e.Error())
 		w.WriteHeader(403)
@@ -147,8 +160,14 @@ func memfn(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// TODO: Limit with auth?
 func memclear(w http.ResponseWriter, r *http.Request) {
+	apikey := r.URL.Query().Get("apikey")
+	if apikey == "" || subtle.ConstantTimeCompare([]byte(apikey), []byte(C.APIKey)) != 1 {
+		w.WriteHeader(401)
+		writer.Err(w, r, writer.ErrorRes{Error: "Invalid GET[apikey]", Detail: nil})
+		return
+	}
+
 	pattern := r.URL.Query().Get("pattern")
 	if pattern == "" {
 		w.WriteHeader(400)
