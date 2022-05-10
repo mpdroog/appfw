@@ -1,0 +1,19 @@
+[Unit]
+Description=Application Firewall
+Requires=network.target
+After=multi-user.target
+
+[Service]
+LimitNOFILE=100
+Type=notify
+
+ExecStart=/etc/appfw/appfw -c=/etc/appfw/config.toml
+User=appfw
+Group=appfw
+WorkingDirectory=/etc/appfw
+
+# CGroup ruling
+MemoryLimit=512M
+
+[Install]
+WantedBy=multi-user.target
