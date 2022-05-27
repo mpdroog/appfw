@@ -52,18 +52,15 @@ func Init(f string) error {
 		return fmt.Errorf("Missing config.APIKey")
 	}
 
-	heap = ttl_map.New()
-	heap.Path(C.State)
-	if stat, e := os.Stat(C.State); e == nil && stat.Size() > 0 {
-		if e := heap.Restore(); e != nil {
-			_ = os.Remove(C.State)
-			fmt.Printf("WARN: Flushed state as it was corrupt (e=%s)\n", e.Error())
-		}
-		if Verbose {
-			heap.Range(func(key string, value interface{}, ttl int64, max int) {
-				fmt.Printf("%s=%+v (%d)\n", key, value, ttl)
-			})
-		}
+	heap = ttl_map.New(C.State, 1024)
+	if e := heap.Load(); e != nil {
+		_ = os.Remove(C.State)
+		fmt.Printf("WARN: Flushed state as it was corrupt (e=%s)\n", e.Error())
+	}
+	if Verbose {
+		heap.Range(func(key string, value interface{}, ttl int64, max int) {
+			fmt.Printf("%s=%+v (%d)\n", key, value, ttl)
+		})
 	}
 	return nil
 }
@@ -178,8 +175,7 @@ func memclear(w http.ResponseWriter, r *http.Request) {
 	if pattern == "*" {
 		// Reset
 		oldheap := heap
-		heap = ttl_map.New()
-		heap.Path(C.State)
+		heap = ttl_map.New(C.State, 1024)
 
 		if e := os.Remove(C.State); e != nil {
 			w.WriteHeader(400)
