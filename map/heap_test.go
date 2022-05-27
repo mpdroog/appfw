@@ -3,11 +3,14 @@ package ttl_map
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 )
 
 func TestTTL(t *testing.T) {
+	os.Remove("./TestTTL.tsv")
+
 	heap := New("./TestTTL.tsv", 10)
 	{
 		num := heap.GetInt("test_ttl")
@@ -48,6 +51,7 @@ func TestTTL(t *testing.T) {
 }
 
 func TestTTLSetValue(t *testing.T) {
+	os.Remove("./TestTTLSetValue.tsv")
 	heap := New("./TestTTLSetValue.tsv", 10)
 	{
 		num := heap.GetInt("test_add")

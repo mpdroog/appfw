@@ -3,7 +3,8 @@ package ttl_map
 import (
 	"bufio"
 	"bytes"
-	"encoding/gob"
+	//"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -49,7 +50,7 @@ func (h *Heap) Load() (err error) {
 		}
 	}()
 
-	dec := gob.NewDecoder(bufio.NewReader(file))
+	dec := json.NewDecoder(bufio.NewReader(file))
 	for {
 		var v Data
 		err = dec.Decode(&v)
@@ -90,7 +91,7 @@ func (h *Heap) Save() (err error) {
 	}()
 
 	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
+	enc := json.NewEncoder(&buf)
 
 	h.data.Range(func(key, value interface{}) bool {
 		if err = enc.Encode(value); err != nil {

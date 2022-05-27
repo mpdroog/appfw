@@ -56,11 +56,12 @@ func (h *Heap) Set(key string, value int, ttl int64, max int) error {
 		data.Timestamp = -1
 	}
 
-	if cap(h.queue) == 0 {
+	select {
+	case h.queue <- data:
+	default:
 		return fmt.Errorf("Queue full")
 	}
 
-	h.queue <- data
 	h.data.Store(key, data)
 	return nil
 }
@@ -103,9 +104,12 @@ func (h *Heap) SetValue(key string, value int, ttl int64, max int) error {
 		}
 	}
 
-	if cap(h.queue) == 0 {
+	select {
+	case h.queue <- data:
+	default:
 		return fmt.Errorf("Queue full")
 	}
+
 	h.queue <- data
 	h.data.Store(key, data)
 	return nil
@@ -154,18 +158,18 @@ func (h *Heap) Del(key string) error {
 	if h.closed {
 		return fmt.Errorf("Closed")
 	}
-	if cap(h.queue) == 0 {
-		// TODO: Correct?
+	select {
+	case h.queue <- Data{
+		Key:       key,
+		Timestamp: 0,
+	}:
+	default:
 		return fmt.Errorf("Queue full")
 	}
 
 	_, ok := h.data.LoadAndDelete(key)
 	if !ok {
 		return nil
-	}
-	h.queue <- Data{
-		Key:       key,
-		Timestamp: 0,
 	}
 	return nil
 }

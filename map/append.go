@@ -2,7 +2,8 @@ package ttl_map
 
 import (
 	"bytes"
-	"encoding/gob"
+	//"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"os"
 )
@@ -56,7 +57,7 @@ func (h *Heap) append(data Data) (err error) {
 	}()
 
 	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
+	enc := json.NewEncoder(&buf)
 
 	err = enc.Encode(data)
 	if err != nil {

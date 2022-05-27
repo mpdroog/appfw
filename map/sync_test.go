@@ -1,6 +1,7 @@
 package ttl_map
 
 import (
+	"os"
 	"testing"
 )
 
@@ -16,6 +17,7 @@ func TestLoadNoFile(t *testing.T) {
 
 // Add entry, save, remove, load and check if there
 func TestStoreLoad(t *testing.T) {
+	os.Remove("./TestStoreLoad.tsv")
 	{
 		heap := New("./TestStoreLoad.tsv", 10)
 
