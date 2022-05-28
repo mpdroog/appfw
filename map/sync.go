@@ -3,6 +3,7 @@ package ttl_map
 import (
 	"bufio"
 	"bytes"
+	"time"
 	//"encoding/gob"
 	"encoding/json"
 	"errors"
@@ -52,6 +53,7 @@ func (h *Heap) Load() (err error) {
 	}()
 
 	dec := json.NewDecoder(bufio.NewReader(file))
+	now := time.Now().Unix()
 	for {
 		var v Data
 		err = dec.Decode(&v)
@@ -61,6 +63,10 @@ func (h *Heap) Load() (err error) {
 		}
 		if err != nil {
 			return
+		}
+		if v.Timestamp < now {
+			// expired, don't load
+			continue
 		}
 		h.data.Store(v.Key, v)
 	}
@@ -93,8 +99,15 @@ func (h *Heap) Save() (err error) {
 
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
+	now := time.Now().Unix()
 
 	h.data.Range(func(key, value interface{}) bool {
+		v := value.(Data)
+		if v.Timestamp < now {
+			// expired, don't save
+			return true
+		}
+
 		if err = enc.Encode(value); err != nil {
 			return false
 		}
