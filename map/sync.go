@@ -36,6 +36,7 @@ func (h *Heap) Load() (err error) {
 	}
 	if !ok {
 		// No such file, ignore
+		go h.handle()
 		return
 	}
 
