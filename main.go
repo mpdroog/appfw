@@ -174,8 +174,16 @@ func memclear(w http.ResponseWriter, r *http.Request) {
 
 	if pattern == "*" {
 		// Reset
+		if e := os.Remove(C.State); e != nil {
+			fmt.Printf("WARN: os.Remove(%s) e=%s\n", C.State, e.Error())
+		}
+		heap.Close()
+
 		oldheap := heap
 		heap = ttl_map.New(C.State, 1024)
+		if e := heap.Load(); e != nil {
+			panic(e)
+		}
 
 		if e := os.Remove(C.State); e != nil {
 			w.WriteHeader(400)
