@@ -78,7 +78,8 @@ func (h *Heap) SetValue(key string, value int, ttl int64, max int) error {
 	var (
 		data Data
 	)
-	bin, ok := h.data.Load(key)
+
+	bin, ok := h.Get(key)
 	if ok {
 		data = bin.(Data)
 	}
