@@ -66,6 +66,24 @@ func (h *Heap) Set(key string, value int, ttl int64, max int) error {
 	return nil
 }
 
+// getData is an internal-func to get Data-obj from the map
+func (h *Heap) getData(key string) (data Data, ok bool) {
+	bin, ok := h.data.Load(key)
+
+	if ok {
+		data = bin.(Data)
+		if data.Timestamp <= time.Now().Unix() {
+			if e := h.Del(key); e != nil {
+				fmt.Printf("WARN: heap.Del e=%s\n", e.Error())
+			}
+
+			ok = false
+		}
+	}
+
+	return
+}
+
 // SetValue overwrites value but only sets TTL once
 func (h *Heap) SetValue(key string, value int, ttl int64, max int) error {
 	if ttl == 0 {
@@ -75,15 +93,7 @@ func (h *Heap) SetValue(key string, value int, ttl int64, max int) error {
 		return fmt.Errorf("Closed")
 	}
 
-	var (
-		data Data
-	)
-
-	bin, ok := h.Get(key)
-	if ok {
-		data = bin.(Data)
-	}
-
+	data, ok := h.getData(key)
 	if ok {
 		// Update value
 		data.Key = key
@@ -116,25 +126,13 @@ func (h *Heap) SetValue(key string, value int, ttl int64, max int) error {
 	return nil
 }
 
+// Get reads the value from the heap
+// DevNote: This abstracts away the data-object
 func (h *Heap) Get(key string) (val interface{}, ok bool) {
-	var data Data
-	bin, ok := h.data.Load(key)
+	data, ok := h.getData(key)
 	if ok {
-		data = bin.(Data)
+		val = data.Value
 	}
-
-	if ok {
-		if data.Timestamp <= time.Now().Unix() {
-			if e := h.Del(key); e != nil {
-				fmt.Printf("WARN: heap.Del e=%s\n", e.Error())
-			}
-
-			ok = false
-		} else {
-			val = data.Value
-		}
-	}
-
 	return
 }
 
