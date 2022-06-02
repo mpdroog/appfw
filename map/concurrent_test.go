@@ -75,7 +75,7 @@ func TestConcurrentDifferentKey(t *testing.T) {
 				// Add
 				num := heap.GetInt(fmt.Sprintf("TestConcurrent-%d", n))
 				num++
-				if e := heap.Set(fmt.Sprintf("TestConcurrent-%d", n), num, 1, LIMIT_MAX); e != nil {
+				if e := heap.Set(fmt.Sprintf("TestConcurrent-%d", n), num, 10, LIMIT_MAX); e != nil {
 					t.Error(e)
 				}
 			}

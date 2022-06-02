@@ -88,3 +88,50 @@ func TestTTLSetValue(t *testing.T) {
 		}
 	}
 }
+
+func TestTTLIgnore(t *testing.T) {
+	os.Remove("./TestTTLIgnore.tsv")
+	heap := New("./TestTTLIgnore.tsv", 10)
+	defer heap.Close()
+	{
+		num := heap.GetInt("test_add")
+		if num != 0 {
+			t.Errorf("test_add not 0 but %d", num)
+		}
+		num++
+		if e := heap.Set("test_add", num, 1, LIMIT_MAX); e != nil {
+			t.Error(e)
+		}
+		num++
+
+		data, ok := heap.getData("test_add")
+		if !ok {
+			t.Errorf("heap.getData didn't find object before TTL-expiry?")
+		}
+		expectedTTL := data.Timestamp
+
+		if e := heap.SetValue("test_add", num, 10, LIMIT_MAX+10); e != nil {
+			t.Error(e)
+		}
+		data, ok = heap.getData("test_add")
+		if !ok {
+			t.Errorf("heap.getData didn't find object before TTL-expiry?")
+		}
+		if data.Timestamp != expectedTTL {
+			t.Errorf("heap.Timestamp adjusted?")
+		}
+		if data.Max != LIMIT_MAX+10 {
+			t.Errorf("heap.Max didn't adjust?")
+		}
+	}
+
+	// ensure entry is 'expired'
+	time.Sleep(time.Second * 1)
+
+	{
+		num := heap.GetInt("test_add")
+		if num != 0 {
+			t.Errorf("test_add not 0 but %d", num)
+		}
+	}
+}
