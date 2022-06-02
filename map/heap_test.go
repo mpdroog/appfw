@@ -8,7 +8,9 @@ import (
 	"time"
 )
 
-func TestTTL(t *testing.T) {
+const LIMIT_MAX = 10
+
+func TestTTLGetInt(t *testing.T) {
 	os.Remove("./TestTTL.tsv")
 
 	heap := New("./TestTTL.tsv", 10)
@@ -18,7 +20,7 @@ func TestTTL(t *testing.T) {
 			t.Errorf("test_ttl not 0 but %d", num)
 		}
 		num++
-		if e := heap.Set("test_ttl", num, 1, 10); e != nil {
+		if e := heap.Set("test_ttl", num, 1, LIMIT_MAX); e != nil {
 			t.Error(e)
 		}
 	}
@@ -59,7 +61,7 @@ func TestTTLSetValue(t *testing.T) {
 			t.Errorf("test_add not 0 but %d", num)
 		}
 		num++
-		if e := heap.Set("test_add", num, 1, 10); e != nil {
+		if e := heap.Set("test_add", num, 1, LIMIT_MAX); e != nil {
 			t.Error(e)
 		}
 	}
@@ -74,7 +76,7 @@ func TestTTLSetValue(t *testing.T) {
 		}
 		num = num + 2
 
-		if e := heap.SetValue("test_add", num, 1, 10); e != nil {
+		if e := heap.SetValue("test_add", num, 1, LIMIT_MAX); e != nil {
 			t.Error(e)
 		}
 	}
