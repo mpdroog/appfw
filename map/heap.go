@@ -121,7 +121,6 @@ func (h *Heap) SetValue(key string, value int, ttl int64, max int) error {
 		return fmt.Errorf("Queue full")
 	}
 
-	h.queue <- data
 	h.data.Store(key, data)
 	return nil
 }
