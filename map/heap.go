@@ -73,10 +73,8 @@ func (h *Heap) getData(key string) (data Data, ok bool) {
 	if ok {
 		data = bin.(Data)
 		if data.Timestamp <= time.Now().Unix() {
-			if e := h.Del(key); e != nil {
-				fmt.Printf("WARN: heap.Del e=%s\n", e.Error())
-			}
-
+			// Don't sync with filesystem here as Timestamp is expired
+			h.data.Delete(key)
 			ok = false
 		}
 	}
