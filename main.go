@@ -209,6 +209,34 @@ func memclear(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(204)
 }
 
+func cleanup(w http.ResponseWriter, r *http.Request) {
+	apikey := r.URL.Query().Get("apikey")
+	if apikey == "" || subtle.ConstantTimeCompare([]byte(apikey), []byte(C.APIKey)) != 1 {
+		w.WriteHeader(401)
+		writer.Err(w, r, writer.ErrorRes{Error: "Invalid GET[apikey]", Detail: nil})
+		return
+	}
+
+	fmt.Printf("heap.Cleanup\n")
+	if e := heap.Save(); e != nil {
+		fmt.Printf("heap.Save e=%s\n", e.Error())
+	}
+
+	nextheap := ttl_map.New(C.State, 1024)
+	if e := nextheap.Load(); e != nil {
+		fmt.Printf("WARN: nextheap.Load failed\n")
+		return
+	}
+
+	// swap
+	oldheap := heap
+	heap = nextheap
+
+	oldheap.Close()
+
+	w.WriteHeader(204)
+}
+
 func main() {
 	var path string
 	flag.BoolVar(&Verbose, "v", false, "Show all that happens")
@@ -228,6 +256,7 @@ func main() {
 	mux.Add("/limit", limit, "Increase limit-counter")
 	mux.Add("/memory", memfn, "Dump current state to client")
 	mux.Add("/clear", memclear, "Remove one or more entries")
+	mux.Add("/cleanup", cleanup, "(Cleanp) Remove expired entries")
 
 	var e error
 	// Max Nreq/min against bruteforcing
@@ -263,6 +292,18 @@ func main() {
 			if e := heap.Save(); e != nil {
 				fmt.Printf("heap.Save e=%s\n", e.Error())
 			}
+
+			nextheap := ttl_map.New(C.State, 1024)
+			if e := nextheap.Load(); e != nil {
+				fmt.Printf("WARN: nextheap.Load failed\n")
+				continue
+			}
+
+			// swap
+			oldheap := heap
+			heap = nextheap
+
+			oldheap.Close()
 		}
 	}()
 
