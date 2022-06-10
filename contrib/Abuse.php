@@ -31,10 +31,8 @@ class Abuse
     public static $ch = null;
 
     /** Prepare state */
-    public static function init($name = "prod")
+    public static function init()
     {
-        self::$db = Shared::db($name);
-        // Pre-process
         self::$ip = Env::ip();
         self::$whitelisted = self::whitelisted(self::$ip);
 
