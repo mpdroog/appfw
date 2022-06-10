@@ -6,12 +6,15 @@
  */
 
 // begin
+$timezone = "Europe/Amsterdam";
 const BASE = "http://127.0.0.1:1337";
-const APIKEY = "APIKEY_HERE_FROM_DAEMON";
-// Share $ch between funcs to re-use conn where possible
+const APIKEY = "SECRET_KEY_HERE";
 $ch = curl_init();
 if ($ch === false) {
     user_error("Abuse::curl_init fail");
+}
+if (date_default_timezone_set($timezone) === false) {
+    user_error("set_timezone($timezone) failed");
 }
 
 function dump() {
@@ -80,6 +83,30 @@ function clear($query) {
     }
     return $affect;
 }
+function cleanup() {
+    global $ch;
+
+    $opts = [
+        CURLOPT_URL => sprintf("%s/cleanup?apikey=%s", BASE, rawurlencode(APIKEY)),
+        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+        CURLOPT_CUSTOMREQUEST => "GET",
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HEADER => true
+    ];
+    if (false === curl_setopt_array($ch, $opts)) {
+        user_error("curl_setopt_array failed?");
+    }
+
+    $res = curl_exec($ch);
+    if ($res === false) {
+        die("CURLERR=" . curl_error($ch));
+    }
+    $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    if ($http !== 204) {
+        var_dump($res);
+        die("ERR");
+    }
+}
 // end
 
 $affect = "";
@@ -96,6 +123,9 @@ if (isset($_GET["reset"])) {
    $affect = clear($_GET["reset"]);
    $affect_query = $_GET["reset"];
 }
+if (isset($_GET["cleanup"])) {
+    cleanup();
+}
 
 // Small sorting function by value
 function cmp($a, $b) {
@@ -109,20 +139,20 @@ usort($list, "cmp");
 <html>
 <head>
 <title>Application Firewall</title>
-<link rel="stylesheet" href="/assets/v2.css?v=xyz">
-<link rel="stylesheet" href="/css/font-awesome.min.css?v=001">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/fontawesome.min.css">
 </head>
 <body>
 <div class="container-fluid">
 
 <?php
-echo '<h1 class="text-danger"><i class="fa fa-fire"></i> Application Firewall</h1>';
+echo sprintf('<h1 class="text-danger"><i class="fa fa-fire"></i> Application Firewall (time in %s)</h1>', $timezone);
 if ($affect !== "") {
     echo sprintf('<div class="alert alert-banner my-5"><h3>Cleared %s</h3><p>Affect: %d</p></div>', $affect_query, $affect);
 }
 echo '<form action=""><div class="row align-items-center"><div class="col-auto"><div class="input-group d-flex"><div class="form-floating"><input id="reset" type="text" class="form-control" name="reset" placeholder="value.contains(key)"><label for="reset">value.contains(bar)</label></div><button class="btn btn-primary">Clear</button></div></div><div class="col-auto">';
-echo '<a href="?clear" class="js-warn btn btn-outline-primary">Clear ALL</a>';
-//echo '<a href="?refresh" class="js-warn btn btn-outline-primary">Refresh</a>';
+echo '<a href="?clear" class="js-warn btn btn-outline-primary" data-title="Are you sure you want to clear all abuse entries?">Clear ALL</a>';
+echo '<a href="?cleanup" class="js-warn btn btn-outline-primary" data-title="Are you sure you want to remove expired entries?">Cleanup&Refresh</a>';
 echo '</div></div></form>';
 echo '<table class="table table-ordered">';
 echo '<thead><tr><th>Key</th><th>Count</th><th>Max</th><th><abbr title="TimeToLife, datetime until cleared">TTL</abbr></th></tr></thead>';
@@ -139,7 +169,7 @@ foreach ($list as $v) {
         $color = "text-danger";
     }
     if ($percent >= 100) {
-        $color = "text-dark";
+        $color = "bg-dark text-white";
     }
 
     echo sprintf("<tr class='%s'><td>", $color);
@@ -151,7 +181,7 @@ echo '</table>';
 echo '<script type="text/javascript">var $nodes = document.getElementsByClassName("js-warn");
 for (var i = 0; i < $nodes.length; i++) {
   $nodes[i].addEventListener("click", function(e) {
-    if (!confirm("Are you sure you want to clear all abuse entries?")) {
+    if (!confirm(e.target.dataset.title)) {
       e.preventDefault();
     }
   });
