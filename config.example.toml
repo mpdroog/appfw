@@ -1,0 +1,12 @@
+# Application firewall
+# File for persistency
+State = "./state.tsv"
+
+# Host:port addr
+Listen = "127.0.0.1:1337"
+# HTTP-Request limit per IP per minute
+Ratelimit = 50
+
+# Restrict powertools with apikey
+# openssl rand -base64 12
+APIKey = "vqBKCiiZoEUpYBBP"
