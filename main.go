@@ -25,6 +25,9 @@ import (
 type Config struct {
 	/* Path/to/state */
 	State string `default:"./state.tsv"`
+	/* Amount of entries to keep track of */
+	StateSize int `default:1024`
+
 	/** Host:port addr */
 	Listen string `default:"127.0.0.1:1337"`
 	/* Request limit per minute */
@@ -53,9 +56,9 @@ func Init(f string) error {
 		return fmt.Errorf("Missing config.APIKey")
 	}
 
-	heap = ttl_map.New(C.State, 1024)
+	heap = ttl_map.New(C.State, C.StateSize)
 	if e := heap.Load(); e != nil {
-		_ = os.Remove(C.State)
+		_ = heap.Delete()
 		fmt.Printf("WARN: Flushed state as it was corrupt (e=%s)\n", e.Error())
 	}
 	if Verbose {
@@ -175,21 +178,17 @@ func memclear(w http.ResponseWriter, r *http.Request) {
 
 	if pattern == "*" {
 		// Reset
-		if e := os.Remove(C.State); e != nil {
-			fmt.Printf("WARN: os.Remove(%s) e=%s\n", C.State, e.Error())
-		}
 		heap.Close()
-
-		oldheap := heap
-		heap = ttl_map.New(C.State, 1024)
-		if e := heap.Load(); e != nil {
-			panic(e)
-		}
-
-		if e := os.Remove(C.State); e != nil {
+		if e := heap.Delete(); e != nil {
 			w.WriteHeader(400)
 			writer.Err(w, r, writer.ErrorRes{Error: "Failed deleting current state", Detail: e.Error()})
 			return
+		}
+
+		oldheap := heap
+		heap = ttl_map.New(C.State, C.StateSize)
+		if e := heap.Load(); e != nil {
+			panic(e)
 		}
 
 		w.Header().Add("X-Affect", fmt.Sprintf("%d", oldheap.Len()))
@@ -223,7 +222,7 @@ func cleanup(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("heap.Save e=%s\n", e.Error())
 	}
 
-	nextheap := ttl_map.New(C.State, 1024)
+	nextheap := ttl_map.New(C.State, C.StateSize)
 	if e := nextheap.Load(); e != nil {
 		fmt.Printf("WARN: nextheap.Load failed\n")
 		return

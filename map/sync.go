@@ -128,3 +128,20 @@ func (h *Heap) Close() error {
 	h.closed = true
 	return nil
 }
+
+// Delete is a helper func to remove the state-file (if it exists)
+func (h *Heap) Delete() (e error) {
+	ok := false
+
+	ok, e = checkFileExists(h.filePath)
+	if e != nil {
+		return
+	}
+	if !ok {
+		// No such file, ignore
+		return
+	}
+
+	e = os.Remove(h.filePath)
+	return
+}
