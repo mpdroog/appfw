@@ -34,8 +34,9 @@ type Config struct {
 }
 
 var (
-	mux muxdoc.MuxDoc
-	ln  net.Listener
+	version = "dev-build"
+	mux     muxdoc.MuxDoc
+	ln      net.Listener
 
 	Verbose bool
 	C       Config
@@ -238,10 +239,20 @@ func cleanup(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	var path string
+	var (
+		showVersion bool
+		path        string
+	)
+
+	flag.BoolVar(&showVersion, "V", false, "Show version")
 	flag.BoolVar(&Verbose, "v", false, "Show all that happens")
 	flag.StringVar(&path, "c", "./config.toml", "Config-file")
 	flag.Parse()
+
+	if showVersion {
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	if e := Init(path); e != nil {
 		fmt.Printf("Init e=%s\n", e.Error())
