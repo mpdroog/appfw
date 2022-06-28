@@ -22,3 +22,7 @@ curl 'http://127.0.0.1/fw?query=authlogin-$email&limit=4&strategy=24h_last'
 
 This daemon is just a fancy counter, by adding 'rules' to your website-code
 you easily extend your website with a fancy application firewall.
+
+Using daemon with testing?
+==================
+You can disable the 'Too many requests'-error by giving the `Ratelimit`-option the value 0;
