@@ -155,7 +155,7 @@ func memfn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if e := writer.Encode(w, r, heap.Fork()); e != nil {
-		fmt.Printf("AFD.memory e=%s\n", e.Error())
+		fmt.Printf("appfw.memory e=%s\n", e.Error())
 		w.WriteHeader(403)
 		writer.Err(w, r, writer.ErrorRes{Error: "Failed forking memory", Detail: nil})
 	}
@@ -199,7 +199,7 @@ func memclear(w http.ResponseWriter, r *http.Request) {
 	affect := 0
 	heap.Range(func(key string, value interface{}, ttl int64, max int) {
 		if strings.Contains(key, pattern) {
-			fmt.Printf("AFD.clear key=%s\n", key)
+			fmt.Printf("appfw.clear key=%s\n", key)
 			heap.Del(key)
 			affect++
 		}
@@ -259,7 +259,7 @@ func main() {
 		return
 	}
 
-	mux.Title = "AFD-API"
+	mux.Title = "Appfw-API"
 	mux.Desc = "Application Firewall Daemon"
 	mux.Add("/", doc, "This documentation")
 	mux.Add("/verbose", verbose, "Toggle verbosity-mode")
@@ -269,22 +269,29 @@ func main() {
 	mux.Add("/cleanup", cleanup, "(Cleanp) Remove expired entries")
 
 	var e error
-	// Max Nreq/min against bruteforcing
-	limit := ratelimit.Request(ratelimit.IP).Rate(C.Ratelimit, time.Minute).LimitBy(memory.New())
 	server := &http.Server{
 		Addr:         C.Listen,
 		TLSConfig:    DefaultTLSConfig(),
-		Handler:      limit(middleware.Use(mux.Mux)),
+		Handler:      middleware.Use(mux.Mux), // Unsafe default
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  15 * time.Second,
 	}
+
+	if C.Ratelimit == 0 {
+		fmt.Printf("WARN: appfw ratelimit disabled by config\n")
+	} else {
+		// Max Nreq/min against bruteforcing
+		limit := ratelimit.Request(ratelimit.IP).Rate(C.Ratelimit, time.Minute).LimitBy(memory.New())
+		server.Handler = limit(middleware.Use(mux.Mux))
+	}
+
 	ln, e = net.Listen("tcp", server.Addr)
 	if e != nil {
 		panic(e)
 	}
 	if Verbose {
-		fmt.Printf("AFD=%+v\n", C)
+		fmt.Printf("appfw=%+v\n", C)
 	}
 
 	// Error handling of heap state writer
