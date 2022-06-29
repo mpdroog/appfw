@@ -66,7 +66,7 @@ class Abuse
 
         $ch = self::$ch;
         $opts = [
-            CURLOPT_URL => sprintf("%s/limit?key=%s&max=%d&strategy=%s", self::BASE, $key, $maxAttempts, $strat),
+            CURLOPT_URL => sprintf("%s/limit?key=%s&max=%d&strategy=%s", self::BASE, rawurlencode($key), $maxAttempts, $strat),
             CURLOPT_HTTPHEADER => ['Accept: application/json'],
             CURLOPT_CUSTOMREQUEST => "GET",
             CURLOPT_RETURNTRANSFER => true
@@ -85,6 +85,7 @@ class Abuse
         // Ensure everything went right on appfw-side
         if ($http === 403) {
             header("Ratelimit-Key: $key");
+            header("Content-Type: text/plain");
             http_response_code(403);
             // TODO: Your own pretty error response here?
             echo "Err, too many requests.";
