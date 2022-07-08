@@ -4,9 +4,9 @@
  * this uses mpdroog/core - https://github.com/mpdroog/core
  * (but without is easy if you copy/paste specific funcs out of the lib)
  */
-
-use core\Res;
 use core\Env;
+use core\Helper;
+use core\Res;
 
 /** Force 1hour wait after last attempt (Useful for user specific limits) */
 const STRATEGY_1H_WAIT = "STRATEGY_1H_WAIT";
@@ -25,8 +25,7 @@ const STRATEGY_24H_ADD = "STRATEGY_24H_ADD";
  */
 class Abuse
 {
-    const BASE = "http://appfw:1337";
-    private static $ip;
+    private static $base = "http://appfw:1337";
     private static $whitelisted;
 
     /** cURL handler (for HTTP KeepAlive) */
@@ -35,19 +34,14 @@ class Abuse
     /** Prepare state */
     public static function init()
     {
-        self::$ip = Env::ip();
-        self::$whitelisted = self::whitelisted(self::$ip);
+        $cfg = Helper::config("abuse");
+        self::$base = $cfg["server"];
+        self::$whitelisted = in_array(Env::ip(), $cfg["whitelist"]);
 
         self::$ch = curl_init();
         if (self::$ch === false) {
             user_error("Abuse::curl_init fail");
         }
-    }
-
-    /** List of IPs that don't get blacklisted  */
-    public static function whitelisted($ip)
-    {
-        return in_array($ip, []);
     }
 
     /**
