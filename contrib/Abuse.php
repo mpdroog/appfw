@@ -59,7 +59,7 @@ class Abuse
             return;
         }
         $strat = ($strategy === STRATEGY_24H_WAIT) ? "24UPDATE" : "24ADD";
-        $strat = ($strategy === STRATEGY_1H_WAIT) ? "1UPDATE" : "24ADD"; // TODO: dirty..
+        $strat = ($strategy === STRATEGY_1H_WAIT) ? "1UPDATE" : $strat; // TODO: dirty..
 
         $ch = self::$ch;
         $opts = [
