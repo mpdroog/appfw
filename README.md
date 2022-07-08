@@ -26,3 +26,6 @@ you easily extend your website with a fancy application firewall.
 Using daemon with testing?
 ==================
 You can disable the 'Too many requests'-error by giving the `Ratelimit`-option the value 0;
+
+Docker?
+```docker run -it --rm -p 1337:1337 --env APPFW_LISTEN=:1337 --env APPFW_APIKEY=vqBKCiiZoEUpYBBP appfw:main -v```
