@@ -30,19 +30,8 @@ func (h *Heap) Load() (err error) {
 	h.fileMx.Lock()
 	defer h.fileMx.Unlock()
 
-	ok := false
-	ok, err = checkFileExists(h.filePath)
-	if err != nil {
-		return
-	}
-	if !ok {
-		// No such file, ignore
-		go h.handle()
-		return
-	}
-
 	var file *os.File
-	file, err = os.OpenFile(h.filePath, os.O_RDONLY, 0755)
+	file, err = os.OpenFile(h.filePath, os.O_RDONLY|os.O_CREATE, 0755)
 	if err != nil {
 		return
 	}
