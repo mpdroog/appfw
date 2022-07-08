@@ -14,7 +14,7 @@ const STRATEGY_24H_WAIT = "STRATEGY_24H_WAIT";
 const STRATEGY_24H_ADD = "STRATEGY_24H_ADD";
 
 /**
- * Brute-force protection that uses the xsnews_abuselimit table.
+ * Brute-force protection by key.
  *
  * Small abuse counter that uses a unique value (IP/email/memberid) or daily count
  * to limit endpoint calling.
@@ -23,7 +23,7 @@ const STRATEGY_24H_ADD = "STRATEGY_24H_ADD";
  */
 class Abuse
 {
-    const BASE = "http://127.0.0.1:1337";
+    const BASE = "http://appfw:1337";
     private static $ip;
     private static $whitelisted;
 
@@ -45,14 +45,12 @@ class Abuse
     /** List of IPs that don't get blacklisted  */
     public static function whitelisted($ip)
     {
-        return in_array($ip, [
-                "1.2.3.4"  // Your IP to exclude
-        ]);
+        return in_array($ip, []);
     }
 
     /**
-     * Increase counter on $ip until $max
-     * causes 403 banned when limit $max reached
+     * Increase counter on $key until $maxAttempts
+     * DevNote: Func becomes blocking HTTP(403) that stopts processing on limit reached
      */
     public static function incr($key, $maxAttempts=60, $strategy = STRATEGY_24H_WAIT)
     {
@@ -68,7 +66,7 @@ class Abuse
 
         $ch = self::$ch;
         $opts = [
-            CURLOPT_URL => sprintf("%s/limit?key=%s&max=%d&strategy=%s", self::BASE, $key, $maxAttempts, $strat),
+            CURLOPT_URL => sprintf("%s/limit?key=%s&max=%d&strategy=%s", self::BASE, rawurlencode($key), $maxAttempts, $strat),
             CURLOPT_HTTPHEADER => ['Accept: application/json'],
             CURLOPT_CUSTOMREQUEST => "GET",
             CURLOPT_RETURNTRANSFER => true
@@ -80,12 +78,21 @@ class Abuse
         $res = curl_exec($ch);
         if ($res === false) {
             error_log("WARN: Abuse::incr curl_exec=" . curl_error($ch));
+            return;
         }
         $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        if ($http !== 204) {
+
+        // Ensure everything went right on appfw-side
+        if ($http === 403) {
             header("Ratelimit-Key: $key");
-            Shared::client_error("Err, too many requests.", [], 403);
+            header("Content-Type: text/plain");
+            http_response_code(403);
+            // TODO: Your own pretty error response here?
+            echo "Err, too many requests.";
             exit;
+        } else if ($http !== 204) {
+            error_log("WARN: Abuse::incr curl_exec($http)=" . $res);
+            return;
         }
     }
 }
