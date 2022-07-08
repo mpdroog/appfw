@@ -75,7 +75,10 @@ function clear($query) {
     list($headers, $body) = explode("\r\n\r\n", $res, 2);
     $affect = null;
     foreach (explode("\r\n", $headers) as $hdr) {
-        list($key, $value) = explode(":", $hdr, 2);
+        $kv = explode(":", $hdr, 2);
+        if (count($kv) < 2) continue;
+        list($key, $value) = $kv;
+
         if ($key === "X-Affect") {
             $affect = $value;
             break;
