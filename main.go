@@ -112,9 +112,9 @@ func limit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	strategy := r.URL.Query().Get("strategy")
-	if strategy != "24UPDATE" && strategy != "24ADD" {
+	if strategy != "24UPDATE" && strategy != "24ADD" && strategy != "1UPDATE" {
 		w.WriteHeader(400)
-		writer.Err(w, r, writer.ErrorRes{Error: "GET[strategy] invalid, options=[24UPDATE,24ADD]", Detail: nil})
+		writer.Err(w, r, writer.ErrorRes{Error: "GET[strategy] invalid, options=[24UPDATE,24ADD,1UPDATE]", Detail: nil})
 		return
 	}
 
@@ -128,12 +128,17 @@ func limit(w http.ResponseWriter, r *http.Request) {
 	val := heap.GetInt(key)
 	val++
 
-	if strategy == "24UPDATE" {
+	ttl := int64(86400)
+	if strategy == "1UPDATE" {
+		ttl = int64(3600)
+	}
+
+	if strategy == "24UPDATE" || strategy == "1UPDATE" {
 		// Always set (increase TTL)
-		heap.Set(key, val, 86400, max)
+		heap.Set(key, val, ttl, max)
 	} else if strategy == "24ADD" {
 		// Only set value (ignore TTL if update)
-		heap.SetValue(key, val, 86400, max)
+		heap.SetValue(key, val, ttl, max)
 	}
 
 	if val >= max {

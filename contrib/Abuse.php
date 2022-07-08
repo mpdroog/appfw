@@ -8,6 +8,8 @@
 use core\Res;
 use core\Env;
 
+/** Force 1hour wait after last attempt (Useful for user specific limits) */
+const STRATEGY_1H_WAIT = "STRATEGY_1H_WAIT";
 /** Force 24hour wait after last attempt (Useful for user specific limits) */
 const STRATEGY_24H_WAIT = "STRATEGY_24H_WAIT";
 /** Force 24hour wait from the first attempt (Useful for generic limits i.e. 100 lostpass a day) */
@@ -55,7 +57,7 @@ class Abuse
     public static function incr($key, $maxAttempts=60, $strategy = STRATEGY_24H_WAIT)
     {
         $now = time();
-        if (! in_array($strategy, [STRATEGY_24H_WAIT, STRATEGY_24H_ADD])) {
+        if (! in_array($strategy, [STRATEGY_24H_WAIT, STRATEGY_24H_ADD, STRATEGY_1H_WAIT])) {
             user_error("DevErr: Invalid Abuse strategy=$strategy");
         }
 
@@ -63,6 +65,7 @@ class Abuse
             return;
         }
         $strat = ($strategy === STRATEGY_24H_WAIT) ? "24UPDATE" : "24ADD";
+        $strat = ($strategy === STRATEGY_1H_WAIT) ? "1UPDATE" : "24ADD"; // TODO: dirty..
 
         $ch = self::$ch;
         $opts = [
