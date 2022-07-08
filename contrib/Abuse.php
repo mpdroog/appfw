@@ -63,7 +63,7 @@ class Abuse
 
         $ch = self::$ch;
         $opts = [
-            CURLOPT_URL => sprintf("%s/limit?key=%s&max=%d&strategy=%s", self::BASE, rawurlencode($key), $maxAttempts, $strat),
+            CURLOPT_URL => sprintf("%s/limit?key=%s&max=%d&strategy=%s", self::$base, rawurlencode($key), $maxAttempts, $strat),
             CURLOPT_HTTPHEADER => ['Accept: application/json'],
             CURLOPT_CUSTOMREQUEST => "GET",
             CURLOPT_RETURNTRANSFER => true
