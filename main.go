@@ -264,7 +264,7 @@ func main() {
 		return
 	}
 
-	mux.Title = "Appfw-API"
+	mux.Title = "Appfw-API (v=" + version + ")"
 	mux.Desc = "Application Firewall Daemon"
 	mux.Add("/", doc, "This documentation")
 	mux.Add("/verbose", verbose, "Toggle verbosity-mode")
