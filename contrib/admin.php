@@ -9,6 +9,8 @@
 $timezone = "Europe/Amsterdam";
 const BASE = "http://127.0.0.1:1337";
 const APIKEY = "SECRET_KEY_HERE";
+
+$version = "Unknown";
 $ch = curl_init();
 if ($ch === false) {
     user_error("Abuse::curl_init fail");
@@ -25,14 +27,14 @@ $colors = [
 ];
 
 function dump() {
-    global $ch;
+    global $ch, $version;
 
     $opts = [
         CURLOPT_URL => sprintf("%s/memory?apikey=%s", BASE, rawurlencode(APIKEY)),
         CURLOPT_HTTPHEADER => ['Accept: application/json'],
         CURLOPT_CUSTOMREQUEST => "GET",
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HEADER => false
+        CURLOPT_HEADER => true,
     ];
     if (false === curl_setopt_array($ch, $opts)) {
         user_error("curl_setopt_array failed?");
@@ -47,7 +49,22 @@ function dump() {
         var_dump($res);
         die("ERR HTTP=$http");
     }
-    $json = json_decode($res, true);
+
+    // Ugly header parsing to get our custom header(s)
+    list($headers, $body) = explode("\r\n\r\n", $res, 2);
+    $affect = null;
+    foreach (explode("\r\n", $headers) as $hdr) {
+        $kv = explode(":", $hdr, 2);
+        if (count($kv) < 2) continue;
+        list($key, $value) = $kv;
+
+        if (strtoupper($key) === "X-APPFW") {
+            $version = $value;
+            break;
+        }
+    }
+
+    $json = json_decode($body, true);
     if (! is_array($json)) {
         var_dump($res);
         die("ERR, res not JSON?");
@@ -86,7 +103,7 @@ function clear($query) {
         if (count($kv) < 2) continue;
         list($key, $value) = $kv;
 
-        if ($key === "X-Affect") {
+        if (strtoupper($key) === "X-AFFECT") {
             $affect = $value;
             break;
         }
@@ -159,7 +176,9 @@ usort($list, "cmp");
 <div class="container-fluid">
 
 <?php
-echo sprintf('<h1 class="text-danger"><i class="fa fa-fire"></i> Application Firewall (time in %s)</h1>', $timezone);
+echo '<h1 class="text-danger"><i class="fa fa-fire"></i> Application Firewall</h1>';
+echo sprintf('<div class="text-muted pb-4">Version=%s/Timezone=%s</div>', $version, $timezone);
+
 if ($affect !== "") {
     echo sprintf('<div class="alert alert-banner my-5"><h3>Cleared %s</h3><p>Affect: %d</p></div>', $affect_query, $affect);
 }
