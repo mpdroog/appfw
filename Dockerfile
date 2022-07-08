@@ -13,6 +13,9 @@ WORKDIR /app
 COPY --from=builder /app/appfw /usr/bin/
 COPY --from=builder /app/passwd /etc/passwd
 COPY --from=builder /app/group /etc/group
+# Set new statefile
+RUN touch state.tsv
+RUN chown appfw:appfw state.tsv
 
 USER appfw:appfw
 EXPOSE 1337/tcp
