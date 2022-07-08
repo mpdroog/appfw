@@ -16,6 +16,13 @@ if ($ch === false) {
 if (date_default_timezone_set($timezone) === false) {
     user_error("set_timezone($timezone) failed");
 }
+// color definitions
+$colors = [
+  "dark" => "bg-dark text-white",
+  "danger" => "text-danger",
+  "warn" => "text-warning",
+  "regular" => "",
+];
 
 function dump() {
     global $ch;
@@ -162,25 +169,38 @@ echo '<a href="?cleanup" class="js-warn btn btn-outline-primary" data-title="Are
 echo '</div></div></form>';
 echo '<table class="table table-ordered">';
 echo '<thead><tr><th>Key</th><th>Count</th><th>Max</th><th><abbr title="TimeToLife, datetime until cleared">TTL</abbr></th></tr></thead>';
+
+$viewlist = [
+  "dark" => [],
+  "danger" => [],
+  "warn" => [],
+  "regular" => [],
+];
+
+// Split by group
 foreach ($list as $v) {
     $v["Timestamp"] = date("Y-m-d H:i:s", $v["Timestamp"]);
-    // Determine color if it needs extra attention
     $percent = $v["Value"] / $v["Max"] * 100;
-    $color = "";
 
-    if ($percent >= 80) {
-        $color = "text-warning";
-    }
-    if ($percent >= 90) {
-        $color = "text-danger";
-    }
     if ($percent >= 100) {
-        $color = "bg-dark text-white";
+        $viewlist["dark"][] = $v;
+    } else if ($percent >= 90) {
+        $viewlist["dark"][] = $v;
+    } else if ($percent >= 80) {
+        $viewlist["warn"][] = $v;
+    } else {
+        $viewlist["regular"][] = $v;
     }
+}
 
-    echo sprintf("<tr class='%s'><td>", $color);
-    echo implode("</td><td>", $v);
-    echo "</td></tr>";
+// Draw every group's items
+foreach ($viewlist as $vtype => $list) {
+    $color = $colors[$vtype];
+    foreach ($list as $v) {
+        echo sprintf("<tr class='%s'><td>", $color);
+        echo implode("</td><td>", $v);
+        echo "</td></tr>";
+    }
 }
 echo '</table>';
 
