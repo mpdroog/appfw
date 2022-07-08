@@ -160,7 +160,7 @@ func memfn(w http.ResponseWriter, r *http.Request) {
 	}
 
 
-	w.Header().Add("X-APPFW", version))
+	w.Header().Add("X-APPFW", version)
 	if e := writer.Encode(w, r, heap.Fork()); e != nil {
 		fmt.Printf("appfw.memory e=%s\n", e.Error())
 		w.WriteHeader(403)
