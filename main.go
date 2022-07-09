@@ -10,6 +10,8 @@ import (
 	"github.com/itshosted/webutils/middleware"
 	"github.com/itshosted/webutils/muxdoc"
 	"github.com/jinzhu/configor"
+	"github.com/mpdroog/afd/config"
+	"github.com/mpdroog/afd/handlers"
 	ttl_map "github.com/mpdroog/afd/map"
 	"github.com/mpdroog/afd/writer"
 	"net"
@@ -22,46 +24,30 @@ import (
 	"time"
 )
 
-type Config struct {
-	/* Path/to/state */
-	State string `default:"./state.tsv"`
-	/* Amount of entries to keep track of */
-	StateSize int `default:1024`
-
-	/** Host:port addr */
-	Listen string `default:"127.0.0.1:1337"`
-	/* Request limit per minute */
-	Ratelimit int `default:"50"`
-	/* Restrict powertools with apikey */
-	APIKey string
-}
-
 var (
-	version = "dev-build"
 	mux     muxdoc.MuxDoc
 	ln      net.Listener
+	version = "dev-build"
 
-	Verbose bool
-	C       Config
-	heap    *ttl_map.Heap
+	heap *ttl_map.Heap
 )
 
 func Init(f string) error {
-	e := configor.New(&configor.Config{ENVPrefix: "APPFW"}).Load(&C, f)
+	e := configor.New(&configor.Config{ENVPrefix: "APPFW"}).Load(&config.C, f)
 	if e != nil {
 		return e
 	}
 
-	if C.APIKey == "" {
+	if config.C.APIKey == "" {
 		return fmt.Errorf("Missing config.APIKey")
 	}
 
-	heap = ttl_map.New(C.State, C.StateSize)
+	heap = ttl_map.New(config.C.State, config.C.StateSize)
 	if e := heap.Load(); e != nil {
 		_ = heap.Delete()
 		fmt.Printf("WARN: Flushed state as it was corrupt (e=%s)\n", e.Error())
 	}
-	if Verbose {
+	if config.Verbose {
 		heap.Range(func(key string, value interface{}, ttl int64, max int) {
 			fmt.Printf("%s=%+v (%d)\n", key, value, ttl)
 		})
@@ -78,15 +64,15 @@ func doc(w http.ResponseWriter, r *http.Request) {
 
 func verbose(w http.ResponseWriter, r *http.Request) {
 	msg := `{"success": true, "msg": "Set verbosity to `
-	if Verbose {
-		Verbose = false
+	if config.Verbose {
+		config.Verbose = false
 		msg += "OFF"
 	} else {
-		Verbose = true
+		config.Verbose = true
 		msg += "ON"
 	}
 	msg += `"}`
-	fmt.Printf("HTTP.Verbosity set to %t\n", Verbose)
+	fmt.Printf("HTTP.Verbosity set to %t\n", config.Verbose)
 
 	w.Header().Set("Content-Type", "application/json")
 	if _, e := w.Write([]byte(msg)); e != nil {
@@ -153,12 +139,11 @@ func limit(w http.ResponseWriter, r *http.Request) {
 
 func memfn(w http.ResponseWriter, r *http.Request) {
 	apikey := r.URL.Query().Get("apikey")
-	if apikey == "" || subtle.ConstantTimeCompare([]byte(apikey), []byte(C.APIKey)) != 1 {
+	if apikey == "" || subtle.ConstantTimeCompare([]byte(apikey), []byte(config.C.APIKey)) != 1 {
 		w.WriteHeader(401)
 		writer.Err(w, r, writer.ErrorRes{Error: "Invalid GET[apikey]", Detail: nil})
 		return
 	}
-
 
 	w.Header().Add("X-APPFW", version)
 	if e := writer.Encode(w, r, heap.Fork()); e != nil {
@@ -170,7 +155,7 @@ func memfn(w http.ResponseWriter, r *http.Request) {
 
 func memclear(w http.ResponseWriter, r *http.Request) {
 	apikey := r.URL.Query().Get("apikey")
-	if apikey == "" || subtle.ConstantTimeCompare([]byte(apikey), []byte(C.APIKey)) != 1 {
+	if apikey == "" || subtle.ConstantTimeCompare([]byte(apikey), []byte(config.C.APIKey)) != 1 {
 		w.WriteHeader(401)
 		writer.Err(w, r, writer.ErrorRes{Error: "Invalid GET[apikey]", Detail: nil})
 		return
@@ -193,7 +178,7 @@ func memclear(w http.ResponseWriter, r *http.Request) {
 		}
 
 		oldheap := heap
-		heap = ttl_map.New(C.State, C.StateSize)
+		heap = ttl_map.New(config.C.State, config.C.StateSize)
 		if e := heap.Load(); e != nil {
 			panic(e)
 		}
@@ -218,7 +203,7 @@ func memclear(w http.ResponseWriter, r *http.Request) {
 
 func cleanup(w http.ResponseWriter, r *http.Request) {
 	apikey := r.URL.Query().Get("apikey")
-	if apikey == "" || subtle.ConstantTimeCompare([]byte(apikey), []byte(C.APIKey)) != 1 {
+	if apikey == "" || subtle.ConstantTimeCompare([]byte(apikey), []byte(config.C.APIKey)) != 1 {
 		w.WriteHeader(401)
 		writer.Err(w, r, writer.ErrorRes{Error: "Invalid GET[apikey]", Detail: nil})
 		return
@@ -229,7 +214,7 @@ func cleanup(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("heap.Save e=%s\n", e.Error())
 	}
 
-	nextheap := ttl_map.New(C.State, C.StateSize)
+	nextheap := ttl_map.New(config.C.State, config.C.StateSize)
 	if e := nextheap.Load(); e != nil {
 		fmt.Printf("WARN: nextheap.Load failed\n")
 		return
@@ -251,7 +236,7 @@ func main() {
 	)
 
 	flag.BoolVar(&showVersion, "V", false, "Show version")
-	flag.BoolVar(&Verbose, "v", false, "Show all that happens")
+	flag.BoolVar(&config.Verbose, "v", false, "Show all that happens")
 	flag.StringVar(&path, "c", "./config.toml", "Config-file")
 	flag.Parse()
 
@@ -277,28 +262,34 @@ func main() {
 
 	var e error
 	server := &http.Server{
-		Addr:         C.Listen,
+		Addr:         config.C.Listen,
 		TLSConfig:    DefaultTLSConfig(),
-		Handler:      middleware.Use(mux.Mux), // Unsafe default
+		Handler:      nil,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  15 * time.Second,
 	}
 
-	if C.Ratelimit == 0 {
+	// Default handler
+	var handler http.Handler = middleware.Use(mux.Mux)
+
+	if config.C.Ratelimit == 0 {
 		fmt.Printf("WARN: appfw ratelimit disabled by config\n")
 	} else {
-		// Max Nreq/min against bruteforcing
-		limit := ratelimit.Request(ratelimit.IP).Rate(C.Ratelimit, time.Minute).LimitBy(memory.New())
-		server.Handler = limit(middleware.Use(mux.Mux))
+		// Extend handler with ratelimiter
+		limit := ratelimit.Request(ratelimit.IP).Rate(config.C.Ratelimit, time.Minute).LimitBy(memory.New())
+		handler = limit(handler)
 	}
+
+	// Set handler and add accesslog
+	server.Handler = handlers.AccessLog(handler)
 
 	ln, e = net.Listen("tcp", server.Addr)
 	if e != nil {
 		panic(e)
 	}
-	if Verbose {
-		fmt.Printf("appfw=%+v\n", C)
+	if config.Verbose {
+		fmt.Printf("appfw=%+v\n", config.C)
 	}
 
 	// Error handling of heap state writer
@@ -317,7 +308,7 @@ func main() {
 				fmt.Printf("heap.Save e=%s\n", e.Error())
 			}
 
-			nextheap := ttl_map.New(C.State, 1024)
+			nextheap := ttl_map.New(config.C.State, 1024)
 			if e := nextheap.Load(); e != nil {
 				fmt.Printf("WARN: nextheap.Load failed\n")
 				continue
