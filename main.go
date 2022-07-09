@@ -128,6 +128,7 @@ func limit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if e != nil {
+		fmt.Printf("appfw heap.Set=%s\n", e.Error())
 		w.WriteHeader(500)
 		writer.Err(w, r, writer.ErrorRes{Error: "heap.Set error", Detail: e.Error()})
 		return
@@ -218,11 +219,16 @@ func cleanup(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("heap.Cleanup\n")
 	if e := heap.Save(); e != nil {
 		fmt.Printf("heap.Save e=%s\n", e.Error())
+		w.WriteHeader(500)
+		writer.Err(w, r, writer.ErrorRes{Error: "Failed saving heap", Detail: nil})
+		return
 	}
 
 	nextheap := ttl_map.New(config.C.State, config.C.StateSize)
 	if e := nextheap.Load(); e != nil {
-		fmt.Printf("WARN: nextheap.Load failed\n")
+		fmt.Printf("WARN: nextheap.Load failed e=%s\n", e.Error())
+		w.WriteHeader(500)
+		writer.Err(w, r, writer.ErrorRes{Error: "Failed reloading heap", Detail: nil})
 		return
 	}
 
@@ -230,7 +236,11 @@ func cleanup(w http.ResponseWriter, r *http.Request) {
 	oldheap := heap
 	heap = nextheap
 
-	oldheap.Close()
+	if e := oldheap.Close(); e != nil {
+		w.WriteHeader(500)
+		fmt.Printf("WARN: oldheap.Close failed e=%s\n", e.Error())
+		return
+	}
 
 	w.WriteHeader(204)
 }
