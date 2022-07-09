@@ -78,6 +78,9 @@ func AccessLog(h http.Handler) http.Handler {
 
 		txt := fmt.Sprintf("[%s %s] (status=%d) appfw.http(%s %s%s)\n", msg.Date, msg.Time, msg.Status, msg.Method, msg.Host, msg.URL)
 		if msg.Status != 204 && msg.Status != 200 {
+			d := color.New(color.FgBlue, color.Bold)
+			d.Printf(txt)
+		} else if msg.Status == 403 {
 			d := color.New(color.FgRed, color.Bold)
 			d.Printf(txt)
 		} else {
