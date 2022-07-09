@@ -121,10 +121,16 @@ func limit(w http.ResponseWriter, r *http.Request) {
 
 	if strategy == "24UPDATE" || strategy == "1UPDATE" {
 		// Always set (increase TTL)
-		heap.Set(key, val, ttl, max)
+		e = heap.Set(key, val, ttl, max)
 	} else if strategy == "24ADD" {
 		// Only set value (ignore TTL if update)
-		heap.SetValue(key, val, ttl, max)
+		e = heap.SetValue(key, val, ttl, max)
+	}
+
+	if e != nil {
+		w.WriteHeader(500)
+		writer.Err(w, r, writer.ErrorRes{Error: "heap.Set error", Detail: e.Error()})
+		return
 	}
 
 	if val >= max {
