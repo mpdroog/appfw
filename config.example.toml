@@ -1,6 +1,7 @@
 # Application firewall
 # File for persistency
 State = "./state.tsv"
+StateSize=1024
 
 # Host:port addr
 Listen = "127.0.0.1:1337"

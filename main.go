@@ -266,6 +266,15 @@ func main() {
 		os.Exit(1)
 		return
 	}
+	if config.Verbose {
+		fmt.Printf("appfw=%+v\n", config.C)
+	}
+
+	if config.C.StateSize <= 0 {
+		fmt.Printf("config.StateSize=0, rejecting!\n")
+		os.Exit(1)
+		return
+	}
 
 	mux.Title = "Appfw-API (v=" + version + ")"
 	mux.Desc = "Application Firewall Daemon"
@@ -303,9 +312,6 @@ func main() {
 	ln, e = net.Listen("tcp", server.Addr)
 	if e != nil {
 		panic(e)
-	}
-	if config.Verbose {
-		fmt.Printf("appfw=%+v\n", config.C)
 	}
 
 	go func() {
