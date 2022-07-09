@@ -20,7 +20,6 @@ type Heap struct {
 
 	filePath string
 	queue    chan Data
-	errFn    func(err error)
 	closed   bool
 }
 

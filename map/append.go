@@ -17,17 +17,9 @@ func (h *Heap) handle() {
 		}
 		err = h.append(data)
 		if err != nil {
-			if h.errFn != nil {
-				h.errFn(err)
-			} else {
-				fmt.Printf("WARN heap.handle e=%s\n", err.Error())
-			}
+			fmt.Printf("WARN heap.handle e=%s\n", err.Error())
 		}
 	}
-}
-
-func (h *Heap) Error(fn func(err error)) {
-	h.errFn = fn
 }
 
 // Internal go-routine to append to file

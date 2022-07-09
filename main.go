@@ -308,11 +308,6 @@ func main() {
 		fmt.Printf("appfw=%+v\n", config.C)
 	}
 
-	// Error handling of heap state writer
-	heap.Error(func(e error) {
-		fmt.Printf("WARN: heap.Error=%s\n", e.Error())
-	})
-
 	go func() {
 		// Reset state-file every 24hours (to prevent it becoming too big)
 		ticker := time.NewTicker(24 * time.Hour)
