@@ -81,6 +81,35 @@ func verbose(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func check(w http.ResponseWriter, r *http.Request) {
+	key := r.URL.Query().Get("key")
+	if key == "" {
+		w.WriteHeader(400)
+		writer.Err(w, r, writer.ErrorRes{Error: "GET[key] missing", Detail: nil})
+		return
+	}
+	// prefix
+	key = "limit_" + key
+	data, ok := heap.GetData(key)
+	if !ok {
+		// Not set, so ignore
+		w.WriteHeader(204)
+		return
+	}
+
+	val := data.Value
+	max := data.Max
+	if val >= max {
+		// Limit reached
+		w.WriteHeader(403)
+		writer.Err(w, r, writer.ErrorRes{Error: "Limit reached", Detail: fmt.Sprintf("cur=%d max=%d", val, max)})
+		return
+	}
+
+	// All fine, ignore
+	w.WriteHeader(204)
+}
+
 func limit(w http.ResponseWriter, r *http.Request) {
 	key := r.URL.Query().Get("key")
 	if key == "" {
@@ -280,6 +309,7 @@ func main() {
 	mux.Desc = "Application Firewall Daemon"
 	mux.Add("/", doc, "This documentation")
 	mux.Add("/verbose", verbose, "Toggle verbosity-mode")
+	mux.Add("/check", check, "Check limit-counter (without increasing)")
 	mux.Add("/limit", limit, "Increase limit-counter")
 	mux.Add("/memory", memfn, "Dump current state to client")
 	mux.Add("/clear", memclear, "Remove one or more entries")

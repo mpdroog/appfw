@@ -122,6 +122,10 @@ func (h *Heap) SetValue(key string, value int, ttl int64, max int) error {
 	return nil
 }
 
+func (h *Heap) GetData(key string) (data Data, ok bool) {
+	return h.getData(key)
+}
+
 // Get reads the value from the heap
 // DevNote: This abstracts away the data-object
 func (h *Heap) Get(key string) (val interface{}, ok bool) {
