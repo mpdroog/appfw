@@ -4,7 +4,6 @@
  * A small Go-daemon on the same server that
  * stored a counter to prevent stuff like bruteforcing.
  */
-
 // begin
 $timezone = "Europe/Amsterdam";
 const BASE = "http://127.0.0.1:1337";
@@ -59,7 +58,7 @@ function dump() {
         list($key, $value) = $kv;
 
         if (strtoupper($key) === "X-APPFW") {
-            $version = $value;
+            $version = trim($value);
             break;
         }
     }
@@ -170,24 +169,23 @@ usort($list, "cmp");
 <title>Application Firewall</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/fontawesome.min.css"/>
-<meta http-equiv="refresh" content="15"/>
 </head>
 <body>
 <div class="container-fluid">
 
 <?php
 echo '<h1 class="text-danger"><i class="fa fa-fire"></i> Application Firewall</h1>';
-echo sprintf('<div class="text-muted pb-4">Version=%s/Timezone=%s</div>', $version, $timezone);
+echo sprintf('<table class="text-muted pb-4 table table-ordered"><tr><td>Version</td><td>%s</td><td>Timezone</td><td>%s</td></tr></table>', $version, $timezone);
 
 if ($affect !== "") {
     echo sprintf('<div class="alert alert-banner my-5"><h3>Cleared %s</h3><p>Affect: %d</p></div>', $affect_query, $affect);
 }
-echo '<form action=""><div class="row align-items-center"><div class="col-auto"><div class="input-group d-flex"><div class="form-floating"><input id="reset" type="text" class="form-control" name="reset" placeholder="value.contains(key)"><label for="reset">value.contains(bar)</label></div><button class="btn btn-primary">Clear</button></div></div><div class="col-auto">';
-echo '<a href="?clear" class="js-warn btn btn-outline-primary" data-title="Are you sure you want to clear all abuse entries?">Clear ALL</a>';
-echo '<a href="?cleanup" class="js-warn btn btn-outline-primary" data-title="Are you sure you want to remove expired entries?">Cleanup&Refresh</a>';
+echo '<form action="" autocomplete="off"><div class="row align-items-center d-block"><div class="col-auto float-start"><div class="input-group d-flex"><div class="form-floating"><input id="reset" type="text" class="form-control" name="reset" placeholder="value.contains(key)"><label for="reset">value.contains(bar)</label></div><button class="btn btn-primary">Clear</button></div></div><div class="float-end col-auto btn-group">';
+echo '<a href="?clear" class="js-warn btn btn-outline-primary" data-title="Are you sure you want to clear all abuse entries?"><i class="fa fa-trash"></i> Remove ALL</a>';
+echo '<a href="?cleanup" class="btn btn-outline-secondary" data-title="Are you sure you want to remove expired entries?">Cleanup expired</a>';
 echo '</div></div></form>';
 echo '<table class="table table-ordered">';
-echo '<thead><tr><th>Key</th><th>Count</th><th>Max</th><th><abbr title="TimeToLife, datetime until cleared">TTL</abbr></th></tr></thead>';
+echo '<thead><tr><th>Key</th><th>Count</th><th>Max</th><th><abbr title="TimeToLife, datetime until cleared">TTL</abbr></th></tr></thead><tbody id="js-entries">';
 
 $viewlist = [
   "dark" => [],
@@ -221,9 +219,11 @@ foreach ($viewlist as $vtype => $list) {
         echo "</td></tr>";
     }
 }
-echo '</table>';
+echo '</tbody></table>';
 
-echo '<script type="text/javascript">var $nodes = document.getElementsByClassName("js-warn");
+echo '<script type="text/javascript">
+// js-warn => confirmation
+var $nodes = document.getElementsByClassName("js-warn");
 for (var i = 0; i < $nodes.length; i++) {
   $nodes[i].addEventListener("click", function(e) {
     if (!confirm(e.target.dataset.title)) {
@@ -231,6 +231,34 @@ for (var i = 0; i < $nodes.length; i++) {
     }
   });
 }
+// instant-search
+var timer = null;
+var $entries = document.getElementById("js-entries");
+var $searchbar = document.getElementById("reset");
+$searchbar.addEventListener("input", function(e) {
+    if (timer !== null) clearTimeout(timer);
+
+    timer = setTimeout(function() {
+      var search = e.target.value.trim();
+      var action = "filter";
+      if (search.length === 0) {
+        action = "all";
+      }
+
+      for (var i = 0; i < $entries.children.length; i++) {
+        var $entry = $entries.children[i];
+        if (action === "all") {
+            $entry.classList.remove("d-none");
+        } else {
+            if ($entry.innerHTML.indexOf(search) > -1) {
+                $entry.classList.remove("d-none");
+            } else {
+                $entry.classList.add("d-none");
+            }
+        }
+      }
+    }, 500);
+});
 </script>';
 ?>
 </div></body></html>
