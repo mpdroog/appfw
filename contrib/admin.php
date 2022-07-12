@@ -220,8 +220,9 @@ foreach ($viewlist as $vtype => $list) {
     }
 }
 echo '</tbody></table>';
+?>
 
-echo '<script type="text/javascript">
+<script type="text/javascript">
 // js-warn => confirmation
 var $nodes = document.getElementsByClassName("js-warn");
 for (var i = 0; i < $nodes.length; i++) {
@@ -259,6 +260,12 @@ $searchbar.addEventListener("input", function(e) {
       }
     }, 500);
 });
-</script>';
-?>
+
+// Ensure F5 won't re-run previous cmd
+// Why do this trickery with JS? This saves one round-trip to the appfw server
+var base = location.href.split("?")[0];
+if (base !== location.href) {
+    window.history.pushState({}, "", base);
+}
+</script>
 </div></body></html>
